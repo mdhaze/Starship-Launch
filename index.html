@@ -6,15 +6,15 @@
 <title>T-MINUS</title>
 <style>
   :root{
-    --bg:#000000;
+    --bg:#0b1c2e;          /* default blue */
     --ink:#e8ecef;
-    --ink-dim:#5a6570;
-    --nominal:#cfd8e3;
+    --ink-dim:#8a9bb0;
+    --nominal:#4a9eff;     /* blue */
     --hold:#ffb020;
     --scrub:#ff3b30;
-    --go:#37e07a;
+    --go:#37e07a;          /* green */
     --stale:#ff3b30;
-    --rule: rgba(255,255,255,0.08);
+    --rule: rgba(255,255,255,0.12);
     --accent: var(--nominal);
   }
   *{box-sizing:border-box;}
@@ -23,6 +23,7 @@
     background:var(--bg); color:var(--ink);
     overflow:hidden;
     -webkit-user-select:none; user-select:none;
+    transition: background 0.6s ease;
   }
   body{
     display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -150,21 +151,19 @@
 <script>
 (function(){
   // ---- Config -------------------------------------------------------
-  // Launch Library 2 free tier is capped at 15 requests/hour per IP.
-  // Polling every 10 min = 6/hour, well under the limit.
   var API_URL = "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?lsp__name=SpaceX&limit=1&mode=detailed";
   var POLL_MS = 10 * 60 * 1000;
-  var MIN_MANUAL_GAP_MS = 60 * 1000; // throttle the manual button
-  var STALE_WARN_MS = 12 * 60 * 1000;  // amber "stale" warning
-  var STALE_BAD_MS  = 20 * 60 * 1000;  // red "stale" warning
+  var MIN_MANUAL_GAP_MS = 60 * 1000;
+  var STALE_WARN_MS = 12 * 60 * 1000;
+  var STALE_BAD_MS  = 20 * 60 * 1000;
 
   // ---- State ----------------------------------------------------------
-  var target = null;        // Date: NET or window_start
+  var target = null;
   var missionName = null;
   var padName = null;
-  var statusName = null;    // e.g. "Go", "TBD", "Hold", "Success"
+  var statusName = null;
   var inHold = false;
-  var lastSyncAt = null;    // Date of last *successful* fetch
+  var lastSyncAt = null;
   var lastSyncFailed = false;
   var lastManualAt = 0;
   var liftoffLatched = false;
@@ -182,7 +181,10 @@
     root: document.documentElement
   };
 
-  function setAccent(color){ el.root.style.setProperty('--accent', color); }
+  function setColors(accent, bg){
+    el.root.style.setProperty('--accent', accent);
+    el.root.style.setProperty('--bg', bg);
+  }
 
   function fmtAgo(ms){
     if (ms < 60000) return Math.round(ms/1000) + 's ago';
@@ -239,22 +241,51 @@
   }
 
   function statusLook(){
-    // Returns {label, color, pulse}
-    if (!target) return {label:'NO DATA', color:'var(--ink-dim)', pulse:false};
-    if (inHold) return {label:'HOLDING', color:'var(--hold)', pulse:true};
+    // Returns {label, accent, bg, pulse}
+    if (!target) {
+      return {label:'NO DATA', accent:'#8a9bb0', bg:'#0b1c2e', pulse:false};
+    }
+
     var s = (statusName || '').toLowerCase();
-    if (s.indexOf('scrub') > -1) return {label:'SCRUBBED', color:'var(--scrub)', pulse:false};
-    if (s.indexOf('fail') > -1) return {label:'FAILURE', color:'var(--scrub)', pulse:false};
-    if (s.indexOf('success') > -1) return {label:'LAUNCHED', color:'var(--go)', pulse:false};
-    if (s.indexOf('tbd') > -1) return {label:'DATE TBD', color:'var(--hold)', pulse:false};
+
+    // Scrubbed always wins → red
+    if (s.indexOf('scrub') > -1) {
+      return {label:'SCRUBBED', accent:'#ff3b30', bg:'#2a0a0a', pulse:false};
+    }
+
+    if (inHold) {
+      return {label:'HOLDING', accent:'#ffb020', bg:'#2a1f0a', pulse:true};
+    }
+    if (s.indexOf('fail') > -1) {
+      return {label:'FAILURE', accent:'#ff3b30', bg:'#2a0a0a', pulse:false};
+    }
+    if (s.indexOf('success') > -1) {
+      return {label:'LAUNCHED', accent:'#37e07a', bg:'#0a2a15', pulse:false};
+    }
+    if (s.indexOf('tbd') > -1) {
+      return {label:'DATE TBD', accent:'#ffb020', bg:'#2a1f0a', pulse:false};
+    }
+
     var now = new Date();
-    if (target <= now) return {label:'LIFTOFF', color:'var(--go)', pulse:true};
-    return {label:'GO FOR LAUNCH', color:'var(--nominal)', pulse:false};
+    var diffMs = target - now;
+
+    // Liftoff
+    if (diffMs <= 0) {
+      return {label:'LIFTOFF', accent:'#37e07a', bg:'#0a2a15', pulse:true};
+    }
+
+    // Final 30 minutes → green “real countdown”
+    if (diffMs <= 30 * 60 * 1000) {
+      return {label:'GO FOR LAUNCH', accent:'#37e07a', bg:'#0a2a15', pulse:false};
+    }
+
+    // Normal countdown → blue
+    return {label:'GO FOR LAUNCH', accent:'#4a9eff', bg:'#0b1c2e', pulse:false};
   }
 
   function tick(){
     var look = statusLook();
-    setAccent(look.color);
+    setColors(look.accent, look.bg);
     el.pill.textContent = look.label;
     el.pill.classList.toggle('pulse', look.pulse);
 
