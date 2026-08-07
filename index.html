@@ -29,7 +29,7 @@
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Space Mono", "JetBrains Mono", Menlo, Consolas, monospace;
     height:100dvh; width:100vw;
-    padding: 4vh 3vw;
+    padding: 4vh 4vw;
   }
   .eyebrow{
     font-size: clamp(11px, 1.6vw, 16px);
@@ -39,11 +39,11 @@
     margin-bottom: 1.2vh;
   }
   .mission{
-    font-size: clamp(16px, 2.6vw, 28px);
+    font-size: clamp(15px, 2.4vw, 26px);
     letter-spacing: 0.08em;
     color: var(--ink);
     text-align:center;
-    max-width: 90vw;
+    max-width: 92vw;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .pad{
@@ -70,24 +70,25 @@
   }
   .clock{
     margin-top: 3vh;
-    font-size: clamp(42px, 13vw, 170px);   /* slightly smaller max size */
+    font-size: clamp(38px, 11.5vw, 160px);
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     line-height: 1;
     color: var(--accent);
     font-variant-numeric: tabular-nums;
     text-shadow: 0 0 40px color-mix(in srgb, var(--accent) 35%, transparent);
     transition: color .4s;
     white-space:nowrap;
-    padding: 0 0.15em;                     /* prevents edge clipping */
+    padding: 0 0.2em;
+    max-width: 96vw;
   }
   .clock.has-days{
-    font-size: clamp(32px, 9vw, 130px);
+    font-size: clamp(30px, 8.5vw, 120px);
   }
   .clock .tenths{
     font-size: 0.4em;
     color: var(--ink-dim);
-    margin-left: 0.15em;
+    margin-left: 0.12em;
   }
   .footer{
     margin-top: 3.5vh;
@@ -133,12 +134,26 @@
   .version {
     position: fixed;
     bottom: 14px;
-    right: 18px;
+    right: 16px;
     font-size: 12px;
     color: var(--ink-dim);
     letter-spacing: 0.05em;
     opacity: 0.75;
     z-index: 50;
+  }
+
+  /* Extra protection for phones */
+  @media (max-width: 500px) {
+    body {
+      padding: 3vh 5vw;
+    }
+    .clock {
+      font-size: clamp(34px, 12vw, 92px);
+      padding: 0 0.25em;
+    }
+    .clock.has-days {
+      font-size: clamp(26px, 9vw, 72px);
+    }
   }
 
   @media (prefers-reduced-motion: reduce){
@@ -164,7 +179,7 @@
   </div>
 
   <div class="errbar" id="errbar"></div>
-  <div class="version">v2.2</div>
+  <div class="version">v2.3</div>
 
 <script>
 (function(){
@@ -186,7 +201,7 @@
   var lastManualAt = 0;
   var liftoffTriggered = false;
   var t30Triggered = false;
-  var lastHourTriggered = -1;          // now every hour
+  var lastHourTriggered = -1;
 
   var el = {
     mission: document.getElementById('mission'),
@@ -335,139 +350,4 @@
       lastSyncAt = new Date();
       lastSyncFailed = false;
       clearError();
-    } catch (err) {
-      lastSyncFailed = true;
-      showError('SYNC FAILED — showing last known data (' + (err.message || 'network error') + ')');
-    } finally {
-      renderStaticFields();
-    }
-  }
-
-  function renderStaticFields(){
-    el.mission.textContent = missionName || 'No upcoming launch found';
-    el.pad.textContent = padName && padName.trim() !== '·' ? padName : '';
-  }
-
-  function statusLook(){
-    if (!target) {
-      return {label:'NO DATA', accent:'#8a9bb0', bg:'#0b1c2e', pulse:false};
-    }
-
-    var s = (statusName || '').toLowerCase();
-
-    if (s.indexOf('scrub') > -1) {
-      return {label:'SCRUBBED', accent:'#ff3b30', bg:'#2a0a0a', pulse:false};
-    }
-    if (inHold) {
-      return {label:'HOLDING', accent:'#ffb020', bg:'#2a1f0a', pulse:true};
-    }
-    if (s.indexOf('fail') > -1) {
-      return {label:'FAILURE', accent:'#ff3b30', bg:'#2a0a0a', pulse:false};
-    }
-    if (s.indexOf('success') > -1) {
-      return {label:'LAUNCHED', accent:'#37e07a', bg:'#0a2a15', pulse:false};
-    }
-    if (s.indexOf('tbd') > -1) {
-      return {label:'DATE TBD', accent:'#ffb020', bg:'#2a1f0a', pulse:false};
-    }
-
-    var now = new Date();
-    var diffMs = target - now;
-
-    if (diffMs <= 0) {
-      if (!liftoffTriggered) {
-        liftoffTriggered = true;
-        launchFireworks(14000);
-      }
-      return {label:'LIFTOFF', accent:'#37e07a', bg:'#0a2a15', pulse:true};
-    }
-
-    if (diffMs <= 30 * 60 * 1000) {
-      if (!t30Triggered) {
-        t30Triggered = true;
-        launchFireworks(6000);
-      }
-      return {label:'GO FOR LAUNCH', accent:'#37e07a', bg:'#0a2a15', pulse:false};
-    }
-
-    return {label:'GO FOR LAUNCH', accent:'#4a9eff', bg:'#0b1c2e', pulse:false};
-  }
-
-  function tick(){
-    var look = statusLook();
-    setColors(look.accent, look.bg);
-    el.pill.textContent = look.label;
-    el.pill.classList.toggle('pulse', look.pulse);
-
-    // ----- Hourly fireworks (every hour) -----
-    var now = new Date();
-    var hour = now.getHours();
-    var minutes = now.getMinutes();
-    var seconds = now.getSeconds();
-
-    if (minutes === 0 && seconds === 0) {
-      if (lastHourTriggered !== hour) {
-        lastHourTriggered = hour;
-        if (target && (target - now) > 0) {
-          launchFireworks(5000); // short hourly celebration
-        }
-      }
-    }
-
-    // Clock
-    if (target){
-      var diffMs = target - now;
-      var neg = diffMs < 0;
-      var abs = Math.abs(diffMs);
-      var totalSec = Math.floor(abs/1000);
-      var days = Math.floor(totalSec/86400);
-      var hh = Math.floor((totalSec%86400)/3600);
-      var mm = Math.floor((totalSec%3600)/60);
-      var ss = totalSec%60;
-      var tenths = Math.floor((abs%1000)/100);
-      var hasDays = days > 0;
-      el.clock.classList.toggle('has-days', hasDays);
-
-      if (inHold){
-        el.clock.childNodes[0].nodeValue = 'T\u2212 ' + '00:00:00';
-        el.tenths.textContent = '';
-      } else {
-        var sign = neg ? 'T+ ' : 'T\u2212 ';
-        var dayPart = hasDays ? (days + 'D + ') : '';
-        el.clock.childNodes[0].nodeValue = sign + dayPart + pad2(hh) + ':' + pad2(mm) + ':' + pad2(ss);
-        el.tenths.textContent = '.' + tenths;
-      }
-    } else {
-      el.clock.classList.remove('has-days');
-      el.clock.childNodes[0].nodeValue = '--:--:--';
-      el.tenths.textContent = '';
-    }
-
-    // Sync status
-    if (lastSyncAt){
-      var age = Date.now() - lastSyncAt.getTime();
-      el.syncText.textContent = 'synced ' + fmtAgo(age) + (lastSyncFailed ? ' (retry pending)' : '');
-      el.syncDot.className = 'dot ' + (lastSyncFailed || age > STALE_BAD_MS ? 'stale' : (age > STALE_WARN_MS ? '' : 'ok'));
-    } else {
-      el.syncText.textContent = lastSyncFailed ? 'sync failed' : 'connecting…';
-      el.syncDot.className = 'dot' + (lastSyncFailed ? ' stale' : '');
-    }
-  }
-
-  el.syncBtn.addEventListener('click', function(){
-    var now = Date.now();
-    if (now - lastManualAt < MIN_MANUAL_GAP_MS){
-      showError('Please wait a bit before syncing again (rate-limit protection)');
-      return;
-    }
-    lastManualAt = now;
-    fetchData(true);
-  });
-
-  fetchData(false);
-  setInterval(fetchData, POLL_MS);
-  setInterval(tick, 100);
-})();
-</script>
-</body>
-</html>
+    } catch
