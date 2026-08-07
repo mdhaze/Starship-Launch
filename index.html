@@ -29,7 +29,7 @@
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Space Mono", "JetBrains Mono", Menlo, Consolas, monospace;
     height:100dvh; width:100vw;
-    padding: 4vh 4vw;
+    padding: 4vh 3vw;
   }
   .eyebrow{
     font-size: clamp(11px, 1.6vw, 16px);
@@ -70,7 +70,7 @@
   }
   .clock{
     margin-top: 3vh;
-    font-size: clamp(64px, 17vw, 220px);
+    font-size: clamp(42px, 13vw, 170px);   /* slightly smaller max size */
     font-weight: 600;
     letter-spacing: 0.02em;
     line-height: 1;
@@ -79,9 +79,10 @@
     text-shadow: 0 0 40px color-mix(in srgb, var(--accent) 35%, transparent);
     transition: color .4s;
     white-space:nowrap;
+    padding: 0 0.15em;                     /* prevents edge clipping */
   }
   .clock.has-days{
-    font-size: clamp(40px, 11vw, 150px);
+    font-size: clamp(32px, 9vw, 130px);
   }
   .clock .tenths{
     font-size: 0.4em;
@@ -121,7 +122,6 @@
   }
   .errbar.show{ opacity:1; }
 
-  /* Fireworks canvas */
   #fireworks {
     position: fixed;
     top: 0; left: 0;
@@ -130,15 +130,14 @@
     z-index: 100;
   }
 
-  /* Version number */
   .version {
     position: fixed;
-    bottom: 12px;
-    right: 16px;
+    bottom: 14px;
+    right: 18px;
     font-size: 12px;
     color: var(--ink-dim);
     letter-spacing: 0.05em;
-    opacity: 0.7;
+    opacity: 0.75;
     z-index: 50;
   }
 
@@ -165,7 +164,7 @@
   </div>
 
   <div class="errbar" id="errbar"></div>
-  <div class="version">v2.1</div>
+  <div class="version">v2.2</div>
 
 <script>
 (function(){
@@ -186,8 +185,8 @@
   var lastSyncFailed = false;
   var lastManualAt = 0;
   var liftoffTriggered = false;
-  var t30Triggered = false;          // fireworks at T-30
-  var lastEvenHourTriggered = -1;    // track last even hour we fired
+  var t30Triggered = false;
+  var lastHourTriggered = -1;          // now every hour
 
   var el = {
     mission: document.getElementById('mission'),
@@ -258,15 +257,12 @@
     }
   }
 
-  // durationMs = how long the show lasts
   function launchFireworks(durationMs = 14000) {
     fireworksActive = true;
     fireworksEndTime = Date.now() + durationMs;
 
-    // First burst in the center
     createFirework(canvas.width / 2, canvas.height * 0.35);
 
-    // Additional bursts
     const interval = setInterval(() => {
       if (Date.now() > fireworksEndTime) {
         clearInterval(interval);
@@ -331,7 +327,6 @@
       var netStr = launch.window_start || launch.net;
       target = netStr ? new Date(netStr) : null;
 
-      // Reset triggers if we get a new future launch
       if (target && target > new Date()) {
         liftoffTriggered = false;
         t30Triggered = false;
@@ -379,25 +374,22 @@
     var now = new Date();
     var diffMs = target - now;
 
-    // Liftoff
     if (diffMs <= 0) {
       if (!liftoffTriggered) {
         liftoffTriggered = true;
-        launchFireworks(14000); // full show
+        launchFireworks(14000);
       }
       return {label:'LIFTOFF', accent:'#37e07a', bg:'#0a2a15', pulse:true};
     }
 
-    // Final 30 minutes → green + brief fireworks the first time we cross
     if (diffMs <= 30 * 60 * 1000) {
       if (!t30Triggered) {
         t30Triggered = true;
-        launchFireworks(6000); // brief show
+        launchFireworks(6000);
       }
       return {label:'GO FOR LAUNCH', accent:'#37e07a', bg:'#0a2a15', pulse:false};
     }
 
-    // Normal countdown (blue)
     return {label:'GO FOR LAUNCH', accent:'#4a9eff', bg:'#0b1c2e', pulse:false};
   }
 
@@ -407,23 +399,22 @@
     el.pill.textContent = look.label;
     el.pill.classList.toggle('pulse', look.pulse);
 
-    // ----- Even-hour fireworks -----
+    // ----- Hourly fireworks (every hour) -----
     var now = new Date();
     var hour = now.getHours();
     var minutes = now.getMinutes();
     var seconds = now.getSeconds();
 
-    if (hour % 2 === 0 && minutes === 0 && seconds === 0) {
-      if (lastEvenHourTriggered !== hour) {
-        lastEvenHourTriggered = hour;
-        // Only during countdown (not after liftoff / scrub etc.)
+    if (minutes === 0 && seconds === 0) {
+      if (lastHourTriggered !== hour) {
+        lastHourTriggered = hour;
         if (target && (target - now) > 0) {
-          launchFireworks(5000); // short celebration
+          launchFireworks(5000); // short hourly celebration
         }
       }
     }
 
-    // Clock display
+    // Clock
     if (target){
       var diffMs = target - now;
       var neg = diffMs < 0;
