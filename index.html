@@ -130,6 +130,18 @@
     z-index: 100;
   }
 
+  /* Version number */
+  .version {
+    position: fixed;
+    bottom: 12px;
+    right: 16px;
+    font-size: 12px;
+    color: var(--ink-dim);
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+    z-index: 50;
+  }
+
   @media (prefers-reduced-motion: reduce){
     .status-pill.pulse{ animation:none; }
   }
@@ -153,6 +165,7 @@
   </div>
 
   <div class="errbar" id="errbar"></div>
+  <div class="version">v2.1</div>
 
 <script>
 (function(){
@@ -172,7 +185,9 @@
   var lastSyncAt = null;
   var lastSyncFailed = false;
   var lastManualAt = 0;
-  var liftoffTriggered = false;   // so fireworks only fire once
+  var liftoffTriggered = false;
+  var t30Triggered = false;          // fireworks at T-30
+  var lastEvenHourTriggered = -1;    // track last even hour we fired
 
   var el = {
     mission: document.getElementById('mission'),
@@ -225,33 +240,33 @@
   function createFirework(x, y) {
     const colors = ['#ff3b30', '#ff9500', '#ffcc00', '#37e07a', '#4a9eff', '#bf5af2', '#ff2d55'];
     const color = colors[Math.floor(Math.random() * colors.length)];
-    const count = 60 + Math.random() * 40;
+    const count = 50 + Math.random() * 30;
 
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
-      const speed = 2 + Math.random() * 5;
+      const speed = 2 + Math.random() * 4.5;
       particles.push({
         x: x,
         y: y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         life: 1,
-        decay: 0.012 + Math.random() * 0.01,
+        decay: 0.015 + Math.random() * 0.012,
         color: color,
         size: 2 + Math.random() * 2
       });
     }
   }
 
-  function launchFireworks() {
-    if (fireworksActive) return;
+  // durationMs = how long the show lasts
+  function launchFireworks(durationMs = 14000) {
     fireworksActive = true;
-    fireworksEndTime = Date.now() + 14000; // run for 14 seconds
+    fireworksEndTime = Date.now() + durationMs;
 
-    // Initial big burst
+    // First burst in the center
     createFirework(canvas.width / 2, canvas.height * 0.35);
 
-    // Keep launching more for a while
+    // Additional bursts
     const interval = setInterval(() => {
       if (Date.now() > fireworksEndTime) {
         clearInterval(interval);
@@ -260,7 +275,7 @@
       const x = canvas.width * (0.2 + Math.random() * 0.6);
       const y = canvas.height * (0.15 + Math.random() * 0.35);
       createFirework(x, y);
-    }, 700);
+    }, 600);
   }
 
   function updateFireworks() {
@@ -272,7 +287,7 @@
       const p = particles[i];
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.04; // gravity
+      p.vy += 0.045;
       p.life -= p.decay;
 
       if (p.life <= 0) {
@@ -286,15 +301,12 @@
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
     }
-
     ctx.globalAlpha = 1;
 
     if (particles.length === 0 && Date.now() > fireworksEndTime) {
       fireworksActive = false;
     }
   }
-
-  // Run fireworks animation loop
   setInterval(updateFireworks, 16);
 
   // -------------------- DATA --------------------
@@ -319,9 +331,10 @@
       var netStr = launch.window_start || launch.net;
       target = netStr ? new Date(netStr) : null;
 
-      // Reset liftoff flag if we get a new future launch
+      // Reset triggers if we get a new future launch
       if (target && target > new Date()) {
         liftoffTriggered = false;
+        t30Triggered = false;
       }
 
       lastSyncAt = new Date();
@@ -350,7 +363,6 @@
     if (s.indexOf('scrub') > -1) {
       return {label:'SCRUBBED', accent:'#ff3b30', bg:'#2a0a0a', pulse:false};
     }
-
     if (inHold) {
       return {label:'HOLDING', accent:'#ffb020', bg:'#2a1f0a', pulse:true};
     }
@@ -367,19 +379,25 @@
     var now = new Date();
     var diffMs = target - now;
 
+    // Liftoff
     if (diffMs <= 0) {
-      // Trigger fireworks only once
       if (!liftoffTriggered) {
         liftoffTriggered = true;
-        launchFireworks();
+        launchFireworks(14000); // full show
       }
       return {label:'LIFTOFF', accent:'#37e07a', bg:'#0a2a15', pulse:true};
     }
 
+    // Final 30 minutes → green + brief fireworks the first time we cross
     if (diffMs <= 30 * 60 * 1000) {
+      if (!t30Triggered) {
+        t30Triggered = true;
+        launchFireworks(6000); // brief show
+      }
       return {label:'GO FOR LAUNCH', accent:'#37e07a', bg:'#0a2a15', pulse:false};
     }
 
+    // Normal countdown (blue)
     return {label:'GO FOR LAUNCH', accent:'#4a9eff', bg:'#0b1c2e', pulse:false};
   }
 
@@ -389,8 +407,24 @@
     el.pill.textContent = look.label;
     el.pill.classList.toggle('pulse', look.pulse);
 
+    // ----- Even-hour fireworks -----
+    var now = new Date();
+    var hour = now.getHours();
+    var minutes = now.getMinutes();
+    var seconds = now.getSeconds();
+
+    if (hour % 2 === 0 && minutes === 0 && seconds === 0) {
+      if (lastEvenHourTriggered !== hour) {
+        lastEvenHourTriggered = hour;
+        // Only during countdown (not after liftoff / scrub etc.)
+        if (target && (target - now) > 0) {
+          launchFireworks(5000); // short celebration
+        }
+      }
+    }
+
+    // Clock display
     if (target){
-      var now = new Date();
       var diffMs = target - now;
       var neg = diffMs < 0;
       var abs = Math.abs(diffMs);
@@ -418,6 +452,7 @@
       el.tenths.textContent = '';
     }
 
+    // Sync status
     if (lastSyncAt){
       var age = Date.now() - lastSyncAt.getTime();
       el.syncText.textContent = 'synced ' + fmtAgo(age) + (lastSyncFailed ? ' (retry pending)' : '');
