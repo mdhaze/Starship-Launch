@@ -29,7 +29,7 @@
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Space Mono", "JetBrains Mono", Menlo, Consolas, monospace;
     height:100dvh; width:100vw;
-    padding: 4vh 4vw;
+    padding: 3vh 5vw;          /* more side padding */
   }
   .eyebrow{
     font-size: clamp(11px, 1.6vw, 16px);
@@ -39,7 +39,7 @@
     margin-bottom: 1.2vh;
   }
   .mission{
-    font-size: clamp(15px, 2.4vw, 26px);
+    font-size: clamp(14px, 2.3vw, 25px);
     letter-spacing: 0.08em;
     color: var(--ink);
     text-align:center;
@@ -47,19 +47,19 @@
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .pad{
-    font-size: clamp(11px, 1.4vw, 15px);
+    font-size: clamp(11px, 1.3vw, 14px);
     color: var(--ink-dim);
     letter-spacing: 0.15em;
     margin-top: 0.4vh;
     text-transform: uppercase;
   }
   .status-pill{
-    margin-top: 2.2vh;
-    padding: 0.5em 1.4em;
+    margin-top: 2vh;
+    padding: 0.5em 1.3em;
     border-radius: 999px;
     border: 1px solid var(--accent);
     color: var(--accent);
-    font-size: clamp(12px, 1.6vw, 16px);
+    font-size: clamp(11px, 1.5vw, 15px);
     letter-spacing: 0.25em;
     text-transform: uppercase;
     transition: color .4s, border-color .4s;
@@ -69,8 +69,8 @@
     0%,100%{ opacity:1; } 50%{ opacity:.45; }
   }
   .clock{
-    margin-top: 3vh;
-    font-size: clamp(38px, 11.5vw, 160px);
+    margin-top: 2.5vh;
+    font-size: clamp(32px, 10vw, 150px);
     font-weight: 600;
     letter-spacing: 0.01em;
     line-height: 1;
@@ -78,21 +78,22 @@
     font-variant-numeric: tabular-nums;
     text-shadow: 0 0 40px color-mix(in srgb, var(--accent) 35%, transparent);
     transition: color .4s;
-    white-space:nowrap;
-    padding: 0 0.2em;
-    max-width: 96vw;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;          /* safety */
+    text-align: center;
   }
   .clock.has-days{
-    font-size: clamp(30px, 8.5vw, 120px);
+    font-size: clamp(26px, 8vw, 110px);
   }
   .clock .tenths{
-    font-size: 0.4em;
+    font-size: 0.38em;
     color: var(--ink-dim);
-    margin-left: 0.12em;
+    margin-left: 0.1em;
   }
   .footer{
-    margin-top: 3.5vh;
-    display:flex; align-items:center; gap: 2vw;
+    margin-top: 3vh;
+    display:flex; align-items:center; gap: 3vw;
     font-size: clamp(10px, 1.3vw, 13px);
     color: var(--ink-dim);
     letter-spacing: 0.08em;
@@ -133,26 +134,25 @@
 
   .version {
     position: fixed;
-    bottom: 14px;
-    right: 16px;
-    font-size: 12px;
+    bottom: 12px;
+    right: 14px;
+    font-size: 11px;
     color: var(--ink-dim);
     letter-spacing: 0.05em;
-    opacity: 0.75;
+    opacity: 0.7;
     z-index: 50;
   }
 
-  /* Extra protection for phones */
-  @media (max-width: 500px) {
+  /* Stronger mobile rules */
+  @media (max-width: 480px) {
     body {
-      padding: 3vh 5vw;
+      padding: 2.5vh 6vw;
     }
     .clock {
-      font-size: clamp(34px, 12vw, 92px);
-      padding: 0 0.25em;
+      font-size: clamp(28px, 11vw, 78px) !important;
     }
     .clock.has-days {
-      font-size: clamp(26px, 9vw, 72px);
+      font-size: clamp(22px, 8.5vw, 60px) !important;
     }
   }
 
@@ -179,7 +179,7 @@
   </div>
 
   <div class="errbar" id="errbar"></div>
-  <div class="version">v2.3</div>
+  <div class="version">v2.4</div>
 
 <script>
 (function(){
@@ -350,4 +350,87 @@
       lastSyncAt = new Date();
       lastSyncFailed = false;
       clearError();
-    } catch
+    } catch (err) {
+      lastSyncFailed = true;
+      showError('SYNC FAILED — showing last known data (' + (err.message || 'network error') + ')');
+    } finally {
+      renderStaticFields();
+    }
+  }
+
+  function renderStaticFields(){
+    el.mission.textContent = missionName || 'No upcoming launch found';
+    el.pad.textContent = padName && padName.trim() !== '·' ? padName : '';
+  }
+
+  function statusLook(){
+    if (!target) {
+      return {label:'NO DATA', accent:'#8a9bb0', bg:'#0b1c2e', pulse:false};
+    }
+
+    var s = (statusName || '').toLowerCase();
+
+    if (s.indexOf('scrub') > -1) {
+      return {label:'SCRUBBED', accent:'#ff3b30', bg:'#2a0a0a', pulse:false};
+    }
+    if (inHold) {
+      return {label:'HOLDING', accent:'#ffb020', bg:'#2a1f0a', pulse:true};
+    }
+    if (s.indexOf('fail') > -1) {
+      return {label:'FAILURE', accent:'#ff3b30', bg:'#2a0a0a', pulse:false};
+    }
+    if (s.indexOf('success') > -1) {
+      return {label:'LAUNCHED', accent:'#37e07a', bg:'#0a2a15', pulse:false};
+    }
+    if (s.indexOf('tbd') > -1) {
+      return {label:'DATE TBD', accent:'#ffb020', bg:'#2a1f0a', pulse:false};
+    }
+
+    var now = new Date();
+    var diffMs = target - now;
+
+    if (diffMs <= 0) {
+      if (!liftoffTriggered) {
+        liftoffTriggered = true;
+        launchFireworks(14000);
+      }
+      return {label:'LIFTOFF', accent:'#37e07a', bg:'#0a2a15', pulse:true};
+    }
+
+    if (diffMs <= 30 * 60 * 1000) {
+      if (!t30Triggered) {
+        t30Triggered = true;
+        launchFireworks(6000);
+      }
+      return {label:'GO FOR LAUNCH', accent:'#37e07a', bg:'#0a2a15', pulse:false};
+    }
+
+    return {label:'GO FOR LAUNCH', accent:'#4a9eff', bg:'#0b1c2e', pulse:false};
+  }
+
+  function tick(){
+    var look = statusLook();
+    setColors(look.accent, look.bg);
+    el.pill.textContent = look.label;
+    el.pill.classList.toggle('pulse', look.pulse);
+
+    // Hourly fireworks
+    var now = new Date();
+    var hour = now.getHours();
+    var minutes = now.getMinutes();
+    var seconds = now.getSeconds();
+
+    if (minutes === 0 && seconds === 0) {
+      if (lastHourTriggered !== hour) {
+        lastHourTriggered = hour;
+        if (target && (target - now) > 0) {
+          launchFireworks(5000);
+        }
+      }
+    }
+
+    // Clock
+    if (target){
+      var diffMs = target - now;
+      var neg = diffMs < 0;
+      var abs
