@@ -433,4 +433,57 @@
     if (target){
       var diffMs = target - now;
       var neg = diffMs < 0;
-      var abs
+            var abs = Math.abs(diffMs);
+      var totalSec = Math.floor(abs / 1000);
+      var days = Math.floor(totalSec / 86400);
+      var hrs  = Math.floor((totalSec % 86400) / 3600);
+      var mins = Math.floor((totalSec % 3600) / 60);
+      var secs = totalSec % 60;
+      var tenths = Math.floor((abs % 1000) / 100);
+
+      var sign = neg ? '+' : '-';
+      var main = sign + (days > 0 ? days + 'd ' : '') +
+                 pad2(hrs) + ':' + pad2(mins) + ':' + pad2(secs);
+
+      el.clock.textContent = main;
+      el.clock.classList.toggle('has-days', days > 0);
+      if (el.tenths) el.tenths.textContent = '.' + tenths;
+    } else {
+      el.clock.textContent = '--:--:--';
+      if (el.tenths) el.tenths.textContent = '';
+    }
+
+    // Sync status line
+    if (lastSyncAt) {
+      var age = Date.now() - lastSyncAt.getTime();
+      el.syncText.textContent = lastSyncFailed
+        ? 'last sync failed · ' + fmtAgo(age)
+        : 'synced ' + fmtAgo(age);
+      el.syncDot.style.background = lastSyncFailed ? 'var(--scrub)' :
+        (age > STALE_BAD_MS ? 'var(--scrub)' :
+         age > STALE_WARN_MS ? 'var(--hold)' : 'var(--go)');
+    } else {
+      el.syncText.textContent = lastSyncFailed ? 'sync failed' : 'connecting…';
+      el.syncDot.style.background = lastSyncFailed ? 'var(--scrub)' : 'var(--hold)';
+    }
+  }
+
+  // -------------------- BUTTON + POLLING --------------------
+  el.syncBtn.addEventListener('click', function () {
+    var now = Date.now();
+    if (now - lastManualAt < MIN_MANUAL_GAP_MS) return;
+    lastManualAt = now;
+    el.pill.textContent = 'SYNCING';
+    el.pill.classList.add('pulse');
+    fetchData(true);
+  });
+
+  // Initial fetch + polling
+  fetchData(false);
+  setInterval(function () { fetchData(false); }, POLL_MS);
+  setInterval(tick, 100);
+  tick();
+})();
+</script>
+</body>
+</html>
