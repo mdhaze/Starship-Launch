@@ -154,14 +154,12 @@
   }
   #syncBtn:active{ opacity: 0.7; }
 
-  .mute-btn {
+  .mute-btn, .settings-btn {
     position: absolute;
     bottom: 2.8vh;
-    right: 18px;
     background: transparent;
     border: 1px solid var(--rule);
     color: var(--ink-dim);
-    font-family: inherit;
     font-size: 15px;
     width: 38px;
     height: 38px;
@@ -172,7 +170,9 @@
     justify-content: center;
     z-index: 20;
   }
-  .mute-btn:active { opacity: 0.7; }
+  .mute-btn { right: 18px; }
+  .settings-btn { left: 18px; }
+  .mute-btn:active, .settings-btn:active { opacity: 0.7; }
 
   .errbar{
     position:absolute;
@@ -202,6 +202,81 @@
     pointer-events:none;
     z-index: 5;
   }
+
+  /* Settings panel */
+  .settings-panel {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.78);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .settings-panel.open { display: flex; }
+
+  .settings-card {
+    background: #12263a;
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    padding: 24px 28px;
+    width: 90%;
+    max-width: 340px;
+    color: var(--ink);
+  }
+  .settings-card h2 {
+    margin: 0 0 18px 0;
+    font-size: 15px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: 15px;
+  }
+  .setting-row:last-of-type { border-bottom: none; }
+
+  .toggle {
+    width: 48px;
+    height: 28px;
+    background: #2a3f55;
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle.on { background: var(--nominal); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(20px); }
+
+  .settings-close {
+    margin-top: 22px;
+    width: 100%;
+    padding: 11px;
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-dim);
+    font-family: inherit;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    border-radius: 8px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -215,13 +290,13 @@
   <div class="clock" id="clock">--:--:--</div>
 
   <div class="sub-timers" id="subTimers">
-    <div class="sub-row">
+    <div class="sub-row" id="boosterRow">
       <div class="sub-label">Booster</div>
       <div class="sub-value" id="boosterVal">--:--</div>
       <input class="sub-input" id="boosterMin" type="number" value="7" min="1" max="20" step="0.5" title="Minutes after liftoff">
       <span style="font-size:0.8em;opacity:0.6">min</span>
     </div>
-    <div class="sub-row">
+    <div class="sub-row" id="shipRow">
       <div class="sub-label">Ship</div>
       <div class="sub-value" id="shipVal">--:--</div>
       <input class="sub-input" id="shipMin" type="number" value="65" min="20" max="120" step="1" title="Minutes after liftoff">
@@ -235,9 +310,37 @@
     <button id="syncBtn">SYNC NOW</button>
   </div>
 
+  <button class="settings-btn" id="settingsBtn" title="Settings">⚙</button>
   <button class="mute-btn" id="muteBtn" title="Mute / Unmute">🔊</button>
+
   <div class="errbar" id="errbar"></div>
-  <div class="version">v2.6</div>
+  <div class="version">v2.7</div>
+
+  <!-- Settings Panel -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-card">
+      <h2>Settings</h2>
+
+      <div class="setting-row">
+        <span>Audio</span>
+        <div class="toggle" id="togAudio"></div>
+      </div>
+      <div class="setting-row">
+        <span>Fireworks</span>
+        <div class="toggle" id="togFireworks"></div>
+      </div>
+      <div class="setting-row">
+        <span>Booster line</span>
+        <div class="toggle" id="togBooster"></div>
+      </div>
+      <div class="setting-row">
+        <span>Ship line</span>
+        <div class="toggle" id="togShip"></div>
+      </div>
+
+      <button class="settings-close" id="settingsClose">Close</button>
+    </div>
+  </div>
 
 <script>
 (function () {
@@ -260,6 +363,78 @@
   var lastHourTriggered = -1;
   var liftoffTime = null;
 
+  // -------------------- SETTINGS --------------------
+  var settings = {
+    audio: true,
+    fireworks: true,
+    booster: true,
+    ship: true
+  };
+
+  try {
+    var saved = JSON.parse(localStorage.getItem('tminus-settings') || '{}');
+    Object.assign(settings, saved);
+  } catch(e){}
+
+  function saveSettings() {
+    localStorage.setItem('tminus-settings', JSON.stringify(settings));
+  }
+
+  function applySettings() {
+    muted = !settings.audio;
+    document.getElementById('muteBtn').textContent = muted ? '🔇' : '🔊';
+
+    document.getElementById('boosterRow').style.display = settings.booster ? 'flex' : 'none';
+    document.getElementById('shipRow').style.display = settings.ship ? 'flex' : 'none';
+  }
+
+  function updateToggleUI() {
+    document.getElementById('togAudio').classList.toggle('on', settings.audio);
+    document.getElementById('togFireworks').classList.toggle('on', settings.fireworks);
+    document.getElementById('togBooster').classList.toggle('on', settings.booster);
+    document.getElementById('togShip').classList.toggle('on', settings.ship);
+  }
+
+  document.getElementById('settingsBtn').addEventListener('click', () => {
+    document.getElementById('settingsPanel').classList.add('open');
+    updateToggleUI();
+  });
+
+  document.getElementById('settingsClose').addEventListener('click', () => {
+    document.getElementById('settingsPanel').classList.remove('open');
+  });
+
+  document.getElementById('settingsPanel').addEventListener('click', (e) => {
+    if (e.target.id === 'settingsPanel') {
+      document.getElementById('settingsPanel').classList.remove('open');
+    }
+  });
+
+  document.getElementById('togAudio').addEventListener('click', () => {
+    settings.audio = !settings.audio;
+    saveSettings();
+    applySettings();
+    updateToggleUI();
+  });
+  document.getElementById('togFireworks').addEventListener('click', () => {
+    settings.fireworks = !settings.fireworks;
+    saveSettings();
+    updateToggleUI();
+  });
+  document.getElementById('togBooster').addEventListener('click', () => {
+    settings.booster = !settings.booster;
+    saveSettings();
+    applySettings();
+    updateToggleUI();
+  });
+  document.getElementById('togShip').addEventListener('click', () => {
+    settings.ship = !settings.ship;
+    saveSettings();
+    applySettings();
+    updateToggleUI();
+  });
+
+  // -------------------- ELEMENTS --------------------
   var el = {
     mission: document.getElementById('mission'),
     pad: document.getElementById('pad'),
@@ -315,7 +490,7 @@
   document.body.addEventListener('touchstart', initAudio, { once: true });
 
   function playBoom(big = false) {
-    if (!audioCtx || muted) return;
+    if (!audioCtx || muted || !settings.audio) return;
 
     const now = audioCtx.currentTime;
     const duration = big ? 1.35 : 0.65;
@@ -367,7 +542,7 @@
   }
 
   function playCrackle() {
-    if (!audioCtx || muted) return;
+    if (!audioCtx || muted || !settings.audio) return;
     const now = audioCtx.currentTime;
 
     for (let i = 0; i < 4; i++) {
@@ -388,12 +563,11 @@
     }
   }
 
-  const muteBtn = document.getElementById('muteBtn');
-  muteBtn.addEventListener('click', (e) => {
+  document.getElementById('muteBtn').addEventListener('click', (e) => {
     e.stopPropagation();
-    muted = !muted;
-    muteBtn.textContent = muted ? '🔇' : '🔊';
-    initAudio();
+    settings.audio = !settings.audio;
+    saveSettings();
+    applySettings();
   });
 
   // -------------------- FIREWORKS --------------------
@@ -411,6 +585,8 @@
   resizeCanvas();
 
   function createFirework(x, y, big = false) {
+    if (!settings.fireworks) return;
+
     const colors = ['#ff3b30', '#ff9500', '#ffcc00', '#37e07a', '#4a9eff', '#bf5af2', '#ff2d55', '#ffffff', '#00f5ff'];
     const count = big ? 140 + Math.random() * 80 : 70 + Math.random() * 50;
     const baseSpeed = big ? 6.5 : 4.2;
@@ -419,8 +595,7 @@
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
       const speed = baseSpeed + Math.random() * (big ? 7 : 4.5);
       particles.push({
-        x: x,
-        y: y,
+        x: x, y: y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         life: 1,
@@ -431,7 +606,6 @@
       });
     }
 
-    // Sound
     if (big) {
       playBoom(true);
     } else {
@@ -441,6 +615,8 @@
   }
 
   function launchFireworks(durationMs = 18000) {
+    if (!settings.fireworks) return;
+
     fireworksActive = true;
     fireworksEndTime = Date.now() + durationMs;
 
@@ -676,7 +852,9 @@
     }
   }
 
-  // -------------------- BUTTON + POLLING --------------------
+  // -------------------- INIT --------------------
+  applySettings();
+
   el.syncBtn.addEventListener('click', function () {
     var now = Date.now();
     if (now - lastManualAt < MIN_MANUAL_GAP_MS) return;
