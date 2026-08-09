@@ -264,8 +264,8 @@
   }
   .toggle.on::after { transform: translateX(20px); }
 
-  .settings-close {
-    margin-top: 22px;
+  .settings-close, .test-btn {
+    margin-top: 14px;
     width: 100%;
     padding: 11px;
     background: transparent;
@@ -276,6 +276,11 @@
     letter-spacing: 0.1em;
     border-radius: 8px;
     cursor: pointer;
+  }
+  .test-btn {
+    border-color: var(--nominal);
+    color: var(--nominal);
+    margin-top: 18px;
   }
 </style>
 </head>
@@ -314,7 +319,7 @@
   <button class="mute-btn" id="muteBtn" title="Mute / Unmute">🔊</button>
 
   <div class="errbar" id="errbar"></div>
-  <div class="version">v2.8</div>
+  <div class="version">v2.9</div>
 
   <!-- Settings Panel -->
   <div class="settings-panel" id="settingsPanel">
@@ -338,6 +343,7 @@
         <div class="toggle" id="togShip"></div>
       </div>
 
+      <button class="test-btn" id="forceLiftoffBtn">Force Liftoff (Test)</button>
       <button class="settings-close" id="settingsClose">Close</button>
     </div>
   </div>
@@ -384,11 +390,9 @@
     muted = !settings.audio;
     document.getElementById('muteBtn').textContent = muted ? '🔇' : '🔊';
 
-    // Individual rows
     document.getElementById('boosterRow').style.display = settings.booster ? 'flex' : 'none';
     document.getElementById('shipRow').style.display = settings.ship ? 'flex' : 'none';
 
-    // Immediately show/hide the whole secondary section if we are post-liftoff
     if (liftoffTriggered && liftoffTime) {
       const showSubs = settings.booster || settings.ship;
       el.subTimers.style.display = showSubs ? 'flex' : 'none';
@@ -439,6 +443,15 @@
     saveSettings();
     applySettings();
     updateToggleUI();
+  });
+
+  // Force Liftoff test button
+  document.getElementById('forceLiftoffBtn').addEventListener('click', () => {
+    liftoffTriggered = true;
+    liftoffTime = new Date(Date.now() - 45000); // pretend liftoff was 45 seconds ago
+    launchFireworks(8000);
+    document.getElementById('settingsPanel').classList.remove('open');
+    applySettings();
   });
 
   // -------------------- ELEMENTS --------------------
@@ -730,7 +743,7 @@
   }
 
   function statusLook(){
-    if (!target) {
+    if (!target && !liftoffTriggered) {
       return {label:'NO DATA', accent:'#8a9bb0', bg:'#0b1c2e', pulse:false};
     }
 
@@ -753,9 +766,9 @@
     }
 
     var now = new Date();
-    var diffMs = target - now;
+    var diffMs = target ? (target - now) : -1;
 
-    if (diffMs <= 0) {
+    if (diffMs <= 0 || liftoffTriggered) {
       if (!liftoffTriggered) {
         liftoffTriggered = true;
         liftoffTime = new Date();
@@ -814,7 +827,6 @@
       el.clock.textContent = 'T+' + (hrs > 0 ? hrs + ':' : '') + pad2(mins) + ':' + pad2(secs);
       el.clock.classList.remove('has-days');
 
-      // Respect settings immediately
       el.subTimers.style.display = (settings.booster || settings.ship) ? 'flex' : 'none';
 
       var boosterOffsetMs = parseFloat(el.boosterMin.value || 7) * 60 * 1000;
