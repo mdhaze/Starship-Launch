@@ -314,7 +314,7 @@
   <button class="mute-btn" id="muteBtn" title="Mute / Unmute">🔊</button>
 
   <div class="errbar" id="errbar"></div>
-  <div class="version">v2.7</div>
+  <div class="version">v2.8</div>
 
   <!-- Settings Panel -->
   <div class="settings-panel" id="settingsPanel">
@@ -384,8 +384,15 @@
     muted = !settings.audio;
     document.getElementById('muteBtn').textContent = muted ? '🔇' : '🔊';
 
+    // Individual rows
     document.getElementById('boosterRow').style.display = settings.booster ? 'flex' : 'none';
     document.getElementById('shipRow').style.display = settings.ship ? 'flex' : 'none';
+
+    // Immediately show/hide the whole secondary section if we are post-liftoff
+    if (liftoffTriggered && liftoffTime) {
+      const showSubs = settings.booster || settings.ship;
+      el.subTimers.style.display = showSubs ? 'flex' : 'none';
+    }
   }
 
   function updateToggleUI() {
@@ -807,7 +814,8 @@
       el.clock.textContent = 'T+' + (hrs > 0 ? hrs + ':' : '') + pad2(mins) + ':' + pad2(secs);
       el.clock.classList.remove('has-days');
 
-      el.subTimers.style.display = 'flex';
+      // Respect settings immediately
+      el.subTimers.style.display = (settings.booster || settings.ship) ? 'flex' : 'none';
 
       var boosterOffsetMs = parseFloat(el.boosterMin.value || 7) * 60 * 1000;
       var shipOffsetMs    = parseFloat(el.shipMin.value || 65) * 60 * 1000;
