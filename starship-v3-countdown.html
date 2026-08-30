@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Starship V3 Countdown Overlay</title>
+  <style>
+    :root {
+      --bg: #07080a;
+      --panel: #101318;
+      --line: #2a3140;
+      --text: #e8edf4;
+      --muted: #8b95a5;
+      --dim: #5c6573;
+      --now: #ff6a00;
+      --next: #7ec8ff;
+      --done: #3d4654;
+      --go: #3dff9a;
+      --hold: #ffd166;
+      --abort: #ff4d4d;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background:
+        radial-gradient(1200px 500px at 50% -10%, #1a2230 0%, transparent 60%),
+        var(--bg);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 18px 28px 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    header strong { color: var(--text); letter-spacing: 0.18em; font-weight: 600; }
+    .stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 12px 36px 24px;
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    .clock-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 28px;
+    }
+    .tlabel {
+      font-size: 22px;
+      letter-spacing: 0.28em;
+      color: var(--muted);
+      padding-bottom: 18px;
+      font-weight: 500;
+    }
+    .clock {
+      font-variant-numeric: tabular-nums;
+      font-family: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+      font-size: clamp(56px, 9vw, 112px);
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      line-height: 0.9;
+    }
+    .clock.hold { color: var(--hold); }
+    .clock.go { color: var(--go); }
+    .status-chip {
+      margin-left: auto;
+      align-self: center;
+      border: 1px solid var(--line);
+      padding: 8px 14px;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .status-chip.active { border-color: var(--now); color: var(--now); }
+    .status-chip.hold { border-color: var(--hold); color: var(--hold); }
+    .count-line-wrap {
+      margin-top: 28px;
+    }
+    .count-line {
+      position: relative;
+      height: 3px;
+      background: #1c222c;
+      border-radius: 2px;
+    }
+    .count-line .fill {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      background: linear-gradient(90deg, #3a4658, #ff6a00);
+      width: 0%;
+      border-radius: 2px;
+    }
+    .count-line .playhead {
+      position: absolute;
+      top: -5px;
+      width: 2px;
+      height: 13px;
+      background: #fff;
+      transform: translateX(-1px);
+    }
+    .ticks {
+      position: relative;
+      height: 28px;
+      margin-top: 6px;
+    }
+    .tick {
+      position: absolute;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+    }
+    .tick::before {
+      content: "";
+      display: block;
+      width: 1px;
+      height: 7px;
+      background: #3a4454;
+      margin: 0 auto 4px;
+    }
+    .tick.major { color: var(--muted); }
+    .notes {
+      margin-top: 22px;
+      min-height: 118px;
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+    .now-kicker {
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--now);
+      margin-bottom: 6px;
+    }
+    .now-title {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      margin-bottom: 8px;
+    }
+    .now-body {
+      font-size: 16px;
+      line-height: 1.45;
+      color: #c5ced9;
+      max-width: 820px;
+    }
+    .upcoming {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--next);
+      letter-spacing: 0.02em;
+    }
+    .rail {
+      margin-top: 28px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+    .evt {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 14px;
+      padding: 7px 10px;
+      border-left: 2px solid transparent;
+      color: var(--dim);
+      font-size: 13px;
+    }
+    .evt .t {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      letter-spacing: 0.04em;
+    }
+    .evt.done { color: var(--done); }
+    .evt.next { color: var(--next); border-left-color: var(--next); }
+    .evt.now {
+      color: var(--text);
+      border-left-color: var(--now);
+      background: rgba(255, 106, 0, 0.08);
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 14px 28px 22px;
+      border-top: 1px solid #161b22;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    button, select {
+      background: #151920;
+      color: var(--text);
+      border: 1px solid #2a3140;
+      padding: 8px 12px;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover { border-color: #4a5568; }
+    .controls label { display: flex; align-items: center; gap: 8px; }
+    input[type="range"] { width: min(420px, 48vw); accent-color: #ff6a00; }
+    .fineprint {
+      margin-left: auto;
+      max-width: 420px;
+      text-align: right;
+      color: var(--dim);
+      line-height: 1.35;
+    }
+    body.details-off .notes,
+    body.details-off .rail,
+    body.details-off .ticks,
+    body.details-off .status-chip,
+    body.details-off .vehicle-tag,
+    body.details-off .fineprint {
+      display: none;
+    }
+    body.details-off .count-line-wrap { margin-top: 18px; }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #2a3140;
+      padding: 8px 12px;
+      background: #151920;
+      user-select: none;
+    }
+    .check input {
+      accent-color: #ff6a00;
+      width: 14px;
+      height: 14px;
+    }
+    @media (max-width: 720px) {
+      .clock { font-size: 56px; }
+      .now-title { font-size: 22px; }
+      .fineprint { display: none; }
+      .stage { padding: 12px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>Countdown</strong><span class="vehicle-tag"> &nbsp;·&nbsp; Starship V3 &nbsp;·&nbsp; Super Heavy / Ship &nbsp;·&nbsp; Flight 13 baseline</span></div>
+    <div id="modeLabel">Preview</div>
+  </header>
+
+  <div class="stage">
+    <div class="clock-row">
+      <div class="tlabel">T−</div>
+      <div class="clock" id="clock">50:00</div>
+      <div class="status-chip" id="chip">PRE-COUNT</div>
+    </div>
+
+    <div class="count-line-wrap">
+      <div class="count-line" id="line">
+        <div class="fill" id="fill"></div>
+        <div class="playhead" id="head"></div>
+      </div>
+      <div class="ticks" id="ticks"></div>
+    </div>
+
+    <div class="notes">
+      <div class="now-kicker" id="kicker">Current window</div>
+      <div class="now-title" id="title">Awaiting Flight Director poll</div>
+      <div class="now-body" id="body">Notes appear here against the live count.</div>
+      <div class="upcoming" id="upcoming"></div>
+    </div>
+
+    <div class="rail" id="rail"></div>
+  </div>
+
+  <div class="controls">
+    <button id="play">Run</button>
+    <button id="pause">Pause</button>
+    <button id="reset">Reset T−50:00</button>
+    <label>Speed
+      <select id="speed">
+        <option value="1">1× realtime</option>
+        <option value="10">10×</option>
+        <option value="30" selected>30×</option>
+        <option value="60">60×</option>
+        <option value="120">120×</option>
+      </select>
+    </label>
+    <label>Scrub
+      <input type="range" id="scrub" min="0" max="3000" value="0" />
+    </label>
+    <label class="check">
+      <input type="checkbox" id="details" checked />
+      Display countdown details
+    </label>
+    <div class="fineprint">Official load times from SpaceX Flight 13 card. Terminal events (TVC, T−60 hold gate, QD, FTS) from Pad 2 webcast callouts. Times approximate. Uncheck details if this is not a Starship count.</div>
+  </div>
+
+  <script>
+    const T0 = 0;
+    const START = 50 * 60; // seconds before T-0
+    const events = [
+      { t: 50*60, title: "Flight Director poll", note: "Launch team verifies GO for propellant load. If this poll fails, cryogenics never move and the attempt is dead for the day.", tag: "POLL" },
+      { t: 37*60 + 30, title: "Ship LOX load underway", note: "Liquid oxygen starts flowing into Starship first. Frost line begins climbing the upper stage. First hard public tell that the count is real.", tag: "LOAD" },
+      { t: 37*60, title: "Booster LOX load underway", note: "Super Heavy oxidizer load starts 30 seconds after ship LOX. Stagger exists to manage tank-farm flow and thermal soak.", tag: "LOAD" },
+      { t: 35*60 + 25, title: "Booster methane load underway", note: "Liquid methane begins filling Super Heavy. Methane recondenser at the farm vents hard. Combined cryo load is now on both commodities.", tag: "LOAD" },
+      { t: 34*60 + 48, title: "Ship methane load underway", note: "Starship fuel load starts. From first LOX to last closeout this window is about 35 minutes 20 seconds on the Flight 13 card.", tag: "LOAD" },
+      { t: 21*60 + 30, title: "Raptor engine chill", note: "Small flow of propellant cools pumps and preburners on both stages so hardware is at start temperature before high-flow ignition. Chill vents appear under the ship and at the booster skirt.", tag: "CHILL" },
+      { t: 2*60 + 50, title: "Booster load complete", note: "Super Heavy fill-drain valves close. About 11–11.5 million pounds of propellant will be aboard both stages after ship closeout. Ground lines begin pushback/purge.", tag: "CLOSEOUT" },
+      { t: 2*60 + 10, title: "Ship load complete", note: "Starship tanks closed out. Vehicle is now a giant thermal mass; that is why a short hold is still possible. QD path must be clear for retraction after T-0.", tag: "CLOSEOUT" },
+      { t: 100, title: "TVC wiggle check", note: "First thrust-vector-control gimbal check on the Raptors. Confirms steering actuators can move under cryo conditions. A second check can occur near the hold gate.", tag: "CHECK" },
+      { t: 60, title: "Hold gate", note: "Flight 13 moved the planned hold from T−40 to T−60. Clock can stop here for final pressurization, weather, leak checks, or a software flag. Typical usable hold is 5–8 minutes, limited by propellant warming. Can recycle back to this gate.", tag: "HOLD" },
+      { t: 45, title: "Terminal configuration", note: "After the gate: comms set for flight, gas/fluid leak checks, booster to internal power, final engine prime, ship ascent bleed starts, FTS armed, ship QD arm unlatched. After this point a problem is usually recycle or scrub, not a long pause.", tag: "TERMINAL" },
+      { t: 30, title: "GO for launch", note: "Flight Director final poll. Last human commit before the automated terminal sequence runs out the clock.", tag: "GO" },
+      { t: 17, title: "Flame diverter on", note: "Water dumps onto the steel plate under 33 engines. Acoustic suppression and pad protection. Treated as a one-way commit for the attempt; standing down after flow starts forces a farm refill.", tag: "PAD" },
+      { t: 3, title: "Engine startup command", note: "Booster Raptor 3s light in banks, not all at once. Preburners torch/acoustic-ignite; main chambers autoignite from hot preburner exhaust. Flight software aborts on the pad if too many engines miss start criteria.", tag: "IGNITION" },
+      { t: 0, title: "T-0", note: "Published as “Excitement guaranteed.” Vehicle typically lifts 1–2 seconds later once thrust-to-weight exceeds 1.", tag: "LIFTOFF" }
+    ];
+
+    const ticks = [
+      { t: 50*60, label: "50:00" },
+      { t: 37*60, label: "37:00" },
+      { t: 21*60 + 30, label: "21:30" },
+      { t: 3*60, label: "3:00" },
+      { t: 60, label: "1:00" },
+      { t: 0, label: "0" }
+    ];
+
+    let remaining = START;
+    let running = false;
+    let lastTs = null;
+    let raf = null;
+
+    const clock = document.getElementById("clock");
+    const chip = document.getElementById("chip");
+    const title = document.getElementById("title");
+    const body = document.getElementById("body");
+    const upcoming = document.getElementById("upcoming");
+    const kicker = document.getElementById("kicker");
+    const fill = document.getElementById("fill");
+    const head = document.getElementById("head");
+    const rail = document.getElementById("rail");
+    const scrub = document.getElementById("scrub");
+    const speed = document.getElementById("speed");
+    const modeLabel = document.getElementById("modeLabel");
+    const details = document.getElementById("details");
+
+    function applyDetails() {
+      document.body.classList.toggle("details-off", !details.checked);
+      try { localStorage.setItem("ss-countdown-details", details.checked ? "1" : "0"); } catch (e) {}
+    }
+    try {
+      const saved = localStorage.getItem("ss-countdown-details");
+      if (saved === "0") details.checked = false;
+      if (saved === "1") details.checked = true;
+    } catch (e) {}
+    details.addEventListener("change", applyDetails);
+    applyDetails();
+
+    function fmt(sec) {
+      sec = Math.max(0, Math.round(sec));
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      if (m >= 60) {
+        const h = Math.floor(m / 60);
+        const mm = String(m % 60).padStart(2, "0");
+        return `${h}:${mm}:${String(s).padStart(2, "0")}`;
+      }
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function currentEvent(t) {
+      let cur = events[0];
+      for (const e of events) {
+        if (t <= e.t) cur = e;
+      }
+      return cur;
+    }
+
+    function nextEvent(t) {
+      return events.find(e => e.t < t) || null;
+    }
+
+    function render() {
+      clock.textContent = fmt(remaining);
+      const pct = ((START - remaining) / START) * 100;
+      fill.style.width = pct + "%";
+      head.style.left = pct + "%";
+      scrub.value = String(START - remaining);
+
+      const cur = currentEvent(remaining);
+      const nxt = nextEvent(remaining);
+      title.textContent = cur.title;
+      body.textContent = cur.note;
+      kicker.textContent = remaining <= 0 ? "T-0" : "Now";
+      upcoming.textContent = nxt && remaining > 0
+        ? `Next · T−${fmt(nxt.t)}  ${nxt.title}`
+        : remaining <= 0 ? "Liftoff window" : "";
+
+      clock.className = "clock";
+      chip.className = "status-chip";
+      if (remaining <= 0) {
+        clock.classList.add("go");
+        chip.textContent = "T-0";
+        chip.classList.add("active");
+      } else if (remaining <= 60 && remaining > 17) {
+        clock.classList.add("hold");
+        chip.textContent = "HOLD GATE";
+        chip.classList.add("hold");
+      } else if (remaining <= 17) {
+        chip.textContent = "TERMINAL";
+        chip.classList.add("active");
+      } else if (remaining <= 21 * 60 + 30) {
+        chip.textContent = cur.tag;
+        chip.classList.add("active");
+      } else {
+        chip.textContent = cur.tag;
+      }
+
+      rail.innerHTML = events.map(e => {
+        let cls = "evt";
+        if (remaining < e.t) cls += " done";
+        else if (cur === e) cls += " now";
+        else if (nxt === e) cls += " next";
+        return `<div class="${cls}"><div class="t">T−${fmt(e.t)}</div><div>${e.title}</div></div>`;
+      }).join("");
+
+      modeLabel.textContent = running ? `Running ${speed.value}×` : "Paused / preview";
+    }
+
+    function tick(ts) {
+      if (!running) return;
+      if (lastTs == null) lastTs = ts;
+      const dt = (ts - lastTs) / 1000 * Number(speed.value);
+      lastTs = ts;
+      remaining = Math.max(0, remaining - dt);
+      render();
+      if (remaining > 0) raf = requestAnimationFrame(tick);
+      else running = false;
+    }
+
+    document.getElementById("play").onclick = () => {
+      if (remaining <= 0) remaining = START;
+      running = true;
+      lastTs = null;
+      raf = requestAnimationFrame(tick);
+      render();
+    };
+    document.getElementById("pause").onclick = () => {
+      running = false;
+      lastTs = null;
+      render();
+    };
+    document.getElementById("reset").onclick = () => {
+      running = false;
+      remaining = START;
+      lastTs = null;
+      render();
+    };
+    scrub.oninput = () => {
+      remaining = START - Number(scrub.value);
+      render();
+    };
+
+    const tickBox = document.getElementById("ticks");
+    tickBox.innerHTML = ticks.map(tk => {
+      const left = ((START - tk.t) / START) * 100;
+      return `<div class="tick${tk.t === 0 || tk.t >= 21*60 ? " major" : ""}" style="left:${left}%">${tk.label}</div>`;
+    }).join("");
+
+    render();
+  </script>
+</body>
+</html>
