@@ -1,0 +1,865 @@
+<!-- cdindex v1.06 -->
+<!-- file: cdindexv1.06.html · 2026-09-02 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>cdindex v1.06</title>
+  <style>
+    :root {
+      --bg: #07080a;
+      --panel: #101318;
+      --line: #2a3140;
+      --text: #e8edf4;
+      --muted: #8b95a5;
+      --dim: #5c6573;
+      --now: #ff6a00;
+      --next: #7ec8ff;
+      --go: #3dff9a;
+      --hold: #ffd166;
+      --abort: #ff4d4d;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    }
+    body {
+      background:
+        radial-gradient(1100px 420px at 50% -8%, #1a2230 0%, transparent 62%),
+        var(--bg);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      padding: 16px 28px 6px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    header strong { color: var(--text); letter-spacing: 0.18em; font-weight: 600; }
+    .ver {
+      border: 1px solid var(--line);
+      padding: 3px 8px;
+      letter-spacing: 0.16em;
+      color: var(--text);
+    }
+    .stage {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 8px 28px 28px;
+    }
+    .mission {
+      margin-top: 18px;
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .mission b { color: var(--text); letter-spacing: 0.04em; font-size: 22px; text-transform: none; }
+    .meta {
+      margin-top: 8px;
+      color: var(--dim);
+      font-size: 13px;
+    }
+    .clock-wrap {
+      margin: 28px 0 10px;
+      display: flex;
+      align-items: flex-end;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .tlabel {
+      font-size: 18px;
+      letter-spacing: 0.28em;
+      color: var(--muted);
+      padding-bottom: 10px;
+    }
+    .clock {
+      font-variant-numeric: tabular-nums;
+      font-family: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+      font-size: clamp(40px, 7.4vw, 92px);
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      line-height: 0.92;
+    }
+    .clock.go { color: var(--go); }
+    .clock.hold { color: var(--hold); }
+    .clock.tbd { color: var(--muted); }
+    .units {
+      display: flex;
+      gap: clamp(28px, 6vw, 72px);
+      margin: 4px 0 18px 62px;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--dim);
+    }
+    .landings {
+      display: none;
+      margin: 0 0 18px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .landings.on { display: grid; }
+    .land-row {
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 14px;
+      border-top: 1px solid #161b22;
+      font-size: 13px;
+    }
+    .land-row:first-child { border-top: 0; }
+    .land-name { color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; font-size: 11px; }
+    .land-clock {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 18px;
+    }
+    .land-clock.done { color: var(--dim); }
+    .land-clock.soon { color: var(--hold); }
+    .land-meta { color: var(--dim); font-size: 12px; text-align: right; }
+    .land-row input {
+      width: 64px;
+      background: #151920;
+      color: var(--text);
+      border: 1px solid #2a3140;
+      padding: 4px 6px;
+      font: inherit;
+    }
+    .chip {
+      margin-left: auto;
+      align-self: center;
+      border: 1px solid var(--line);
+      padding: 8px 14px;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .chip.go { border-color: var(--go); color: var(--go); }
+    .chip.tbd { border-color: var(--hold); color: var(--hold); }
+    .chip.hold { border-color: var(--hold); color: var(--hold); }
+    .chip.scrub { border-color: var(--abort); color: var(--abort); }
+    .chip.live { border-color: var(--now); color: var(--now); }
+    .alert {
+      display: none;
+      margin-top: 16px;
+      padding: 16px 18px;
+      border: 2px solid var(--abort);
+      background: rgba(255, 77, 77, 0.12);
+      color: #ffd0d0;
+    }
+    .alert.on { display: block; }
+    .alert.warn {
+      border-color: var(--hold);
+      background: rgba(255, 209, 102, 0.12);
+      color: #ffe7a8;
+    }
+    .alert h2 {
+      font-size: 22px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .alert p { font-size: 15px; line-height: 1.4; color: inherit; }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 14px 0 8px;
+      border-top: 1px solid #161b22;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    button, select {
+      background: #151920;
+      color: var(--text);
+      border: 1px solid #2a3140;
+      padding: 8px 12px;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, select:hover { border-color: #4a5568; }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #2a3140;
+      padding: 8px 12px;
+      background: #151920;
+      user-select: none;
+    }
+    .check input { accent-color: #ff6a00; width: 14px; height: 14px; }
+    .fine {
+      margin-left: auto;
+      max-width: 420px;
+      text-align: right;
+      color: var(--dim);
+      line-height: 1.35;
+    }
+    .panel {
+      display: none;
+      margin-top: 18px;
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+    body.learn-on .panel { display: block; }
+    .now-kicker {
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--now);
+      margin-bottom: 6px;
+    }
+    .now-title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+    .now-body { font-size: 15px; line-height: 1.45; color: #c5ced9; max-width: 820px; }
+    .upcoming { margin-top: 8px; font-size: 13px; color: var(--next); }
+    .rail { margin-top: 16px; display: grid; gap: 3px; }
+    .evt {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 14px;
+      padding: 6px 10px;
+      border-left: 2px solid transparent;
+      color: var(--dim);
+      font-size: 13px;
+    }
+    .evt .t { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+    .evt.now {
+      color: var(--text);
+      border-left-color: var(--now);
+      background: rgba(255, 106, 0, 0.08);
+    }
+    .evt.next { color: var(--next); border-left-color: var(--next); }
+    .evt.done { color: #3d4654; }
+    .simbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 12px 0 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    input[type="range"] { width: min(360px, 48vw); accent-color: #ff6a00; }
+    a { color: var(--next); }
+    @media (max-width: 720px) {
+      .stage, header { padding-left: 16px; padding-right: 16px; }
+      .units { margin-left: 0; }
+      .fine { display: none; }
+      .clock { font-size: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <strong>cdindex</strong>
+      &nbsp;·&nbsp; next SpaceX T-0
+      &nbsp;·&nbsp; <span class="ver" id="ver">v1.06</span>
+    </div>
+    <div id="modeLabel">Live target</div>
+  </header>
+
+  <div class="stage">
+    <div class="mission" id="missionLine">Loading next launch…</div>
+    <div class="meta" id="metaLine"></div>
+    <div class="alert" id="driveAlert">
+      <h2 id="alertTitle">Stand by</h2>
+      <p id="alertBody">Poll result will say whether to keep driving or turn around.</p>
+    </div>
+
+    <div class="clock-wrap">
+      <div class="tlabel" id="tlabel">T−</div>
+      <div class="clock" id="clock">--:--:--:--</div>
+      <div class="chip" id="chip">STANDBY</div>
+    </div>
+    <div class="units" id="units">
+      <span>Days</span><span>Hours</span><span>Min</span><span>Sec</span>
+    </div>
+
+    <div class="landings" id="landings">
+      <div class="land-row">
+        <div class="land-name">Booster catch</div>
+        <div class="land-clock" id="boosterClock">T+7:00 · approx</div>
+        <div class="land-meta">
+          T+ <input id="boosterMin" type="number" value="7" min="5" max="12" step="0.5" /> min
+        </div>
+      </div>
+      <div class="land-row">
+        <div class="land-name">Ship return</div>
+        <div class="land-clock" id="shipClock">T+2:00 · approx</div>
+        <div class="land-meta">
+          T+ <input id="shipHours" type="number" value="2" min="0.5" max="8" step="0.25" /> hr · wide
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label>Target
+        <select id="target">
+          <option value="next" selected>Next SpaceX (live poll)</option>
+          <option value="starlink1524">Starlink 15-24 · Sep 6</option>
+          <option value="starship14">Starship Flight 14 · NET Sep</option>
+          <option value="none">No dated T-0</option>
+        </select>
+      </label>
+      <button id="refresh">Refresh now</button>
+      <label>Minutes to jetties
+        <select id="transit">
+          <option value="6">6 · parked close</option>
+          <option value="10">10 · nearby</option>
+          <option value="15" selected>15 · restaurant</option>
+          <option value="20">20 · Holiday Inn chargers</option>
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="learn" />
+        Learn Starship count sequence
+      </label>
+      <a href="starship-v3-countdown.html">Open sequence trainer</a>
+      <div class="fine">Drive from SA: 6h+ slip or scrub = U-turn. Already on SPI: a 5:30→7:30 slip is stay off the jetties until the new leave time, not a trip home. Poll every 4 min (LL 15/hr cap).</div>
+    </div>
+
+    <div class="panel" id="panel">
+      <div class="now-kicker">Starship V3 sequence · Flight 13 baseline</div>
+      <div class="now-title" id="seqTitle">Flight Director poll</div>
+      <div class="now-body" id="seqBody">Official load times from the Flight 13 card. Terminal events from Pad 2 webcast callouts. This panel teaches the last 50 minutes. It does not replace the launch clock above.</div>
+      <div class="upcoming" id="seqNext"></div>
+      <div class="simbar">
+        <button id="play">Run 50-min count</button>
+        <button id="pause">Pause</button>
+        <button id="reset">Reset T−50:00</button>
+        <label>Speed
+          <select id="speed">
+            <option value="1">1×</option>
+            <option value="10">10×</option>
+            <option value="30" selected>30×</option>
+            <option value="60">60×</option>
+          </select>
+        </label>
+        <label>Scrub <input type="range" id="scrub" min="0" max="3000" value="0" /></label>
+        <span id="seqClock">T−50:00</span>
+      </div>
+      <div class="rail" id="rail"></div>
+    </div>
+  </div>
+
+  <script>
+    const VERSION = "v1.06";
+    const POLL_MS = 4 * 60 * 1000;
+    const SLIP_TURN_MS = 6 * 60 * 60 * 1000;
+    const LL_URL = "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?search=SpaceX&limit=12";
+    document.getElementById("ver").textContent = VERSION;
+
+    const FALLBACK = {
+      id: "fallback-1524",
+      name: "Starlink Group 15-24",
+      vehicle: "Falcon 9",
+      pad: "SLC-4E · Vandenberg",
+      net: "2026-09-06T10:59:00Z",
+      status: "Go",
+      statusName: "Go for Launch"
+    };
+    const STARSHIP14 = {
+      id: "starship-14",
+      name: "Starship Flight 14",
+      vehicle: "Starship V3 / Super Heavy B21 · Ship 41",
+      pad: "Pad 2 · Starbase",
+      net: null,
+      status: "TBD",
+      statusName: "NET September 2026"
+    };
+
+    const events = [
+      { t: 50*60, title: "Flight Director poll", note: "Launch team verifies GO for propellant load. If this poll fails, cryogenics never move and the attempt is dead for the day." },
+      { t: 37*60 + 30, title: "Ship LOX load underway", note: "Liquid oxygen starts flowing into Starship first. Frost line begins climbing the upper stage. First hard public tell that the count is real." },
+      { t: 37*60, title: "Booster LOX load underway", note: "Super Heavy oxidizer load starts 30 seconds after ship LOX. Stagger exists to manage tank-farm flow and thermal soak." },
+      { t: 35*60 + 25, title: "Booster methane load underway", note: "Liquid methane begins filling Super Heavy. Combined cryo load is now on both commodities." },
+      { t: 34*60 + 48, title: "Ship methane load underway", note: "Starship fuel load starts. First LOX to last closeout is about 35 minutes 20 seconds on the Flight 13 card." },
+      { t: 21*60 + 30, title: "Raptor engine chill", note: "Small flow cools pumps and preburners so hardware is at start temperature before high-flow ignition." },
+      { t: 2*60 + 50, title: "Booster load complete", note: "Super Heavy fill-drain valves close. Ground lines begin pushback/purge." },
+      { t: 2*60 + 10, title: "Ship load complete", note: "Starship tanks closed out. A short hold is still possible. QD path must stay clear for retraction after T-0." },
+      { t: 100, title: "TVC wiggle check", note: "First thrust-vector-control gimbal check on the Raptors under cryo conditions." },
+      { t: 60, title: "Hold gate", note: "Flight 13 moved the planned hold from T−40 to T−60. Clock can stop here. Typical usable hold is 5–8 minutes, limited by propellant warming." },
+      { t: 45, title: "Terminal configuration", note: "Comms set for flight, leak checks, booster to internal power, engine prime, FTS armed, ship QD unlatched." },
+      { t: 30, title: "GO for launch", note: "Flight Director final poll. Last human commit before the automated terminal sequence." },
+      { t: 17, title: "Flame diverter on", note: "Water onto the steel plate under 33 engines. Treated as a one-way commit for the attempt." },
+      { t: 3, title: "Engine startup command", note: "Booster Raptor 3s light in banks. Flight software aborts on the pad if too many engines miss start criteria." },
+      { t: 0, title: "T-0", note: "Published as “Excitement guaranteed.” Vehicle typically lifts 1–2 seconds later." }
+    ];
+
+    let liveLaunch = null;
+    let selected = FALLBACK;
+    let holdFrozenMs = null;
+    let lastPollAt = null;
+    let lastPollNote = "not yet";
+    let driveState = "ok";
+    let lastAlertKey = "";
+    let watchedNet = null;
+    let seqRemain = 50 * 60;
+    let running = false;
+    let lastTs = null;
+
+    const clock = document.getElementById("clock");
+    const chip = document.getElementById("chip");
+    const tlabel = document.getElementById("tlabel");
+    const units = document.getElementById("units");
+    const missionLine = document.getElementById("missionLine");
+    const metaLine = document.getElementById("metaLine");
+    const modeLabel = document.getElementById("modeLabel");
+    const target = document.getElementById("target");
+    const learn = document.getElementById("learn");
+    const seqTitle = document.getElementById("seqTitle");
+    const seqBody = document.getElementById("seqBody");
+    const seqNext = document.getElementById("seqNext");
+    const seqClock = document.getElementById("seqClock");
+    const rail = document.getElementById("rail");
+    const scrub = document.getElementById("scrub");
+    const speed = document.getElementById("speed");
+    const transit = document.getElementById("transit");
+    const landings = document.getElementById("landings");
+    const boosterClock = document.getElementById("boosterClock");
+    const shipClock = document.getElementById("shipClock");
+    const boosterMin = document.getElementById("boosterMin");
+    const shipHours = document.getElementById("shipHours");
+    const driveAlert = document.getElementById("driveAlert");
+    const alertTitle = document.getElementById("alertTitle");
+    const alertBody = document.getElementById("alertBody");
+
+    function pad(n) { return String(n).padStart(2, "0"); }
+
+    function fmtLocal(ms) {
+      try {
+        return new Date(ms).toLocaleString("en-US", {
+          timeZone: "America/Chicago",
+          weekday: "short",
+          hour: "numeric",
+          minute: "2-digit"
+        }) + " CT";
+      } catch (e) {
+        return new Date(ms).toString();
+      }
+    }
+
+    function transitMs() {
+      return Number(transit && transit.value ? transit.value : 15) * 60 * 1000;
+    }
+
+    function leaveMs(netIso) {
+      const t0 = Date.parse(netIso);
+      if (Number.isNaN(t0)) return null;
+      return t0 - transitMs();
+    }
+
+    function fmtLong(ms) {
+      const abs = Math.abs(ms);
+      const total = Math.floor(abs / 1000);
+      const d = Math.floor(total / 86400);
+      const h = Math.floor((total % 86400) / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      return `${pad(d)}:${pad(h)}:${pad(m)}:${pad(s)}`;
+    }
+
+    function fmtSeq(sec) {
+      sec = Math.max(0, Math.round(sec));
+      return `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`;
+    }
+
+    function statusKey(st) {
+      return String(st || "").toLowerCase();
+    }
+
+    function isHold(st) {
+      const s = statusKey(st);
+      return s === "hold" || s.includes("hold");
+    }
+
+    function isScrub(st) {
+      const s = statusKey(st);
+      return s.includes("scrub") || s === "stop";
+    }
+
+    function isTerminalFlown(st) {
+      const s = statusKey(st);
+      return s === "success" || s.includes("success") || s.includes("failure") || s === "in flight";
+    }
+
+    function beep(times) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        for (let i = 0; i < times; i++) {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = "square";
+          o.frequency.value = i ? 620 : 880;
+          g.gain.value = 0.05;
+          o.connect(g);
+          g.connect(ctx.destination);
+          const t0 = ctx.currentTime + i * 0.22;
+          o.start(t0);
+          o.stop(t0 + 0.16);
+        }
+      } catch (e) {}
+    }
+
+    function setDriveAlert(state, title, body) {
+      driveState = state;
+      driveAlert.className = "alert";
+      if (state === "ok") {
+        driveAlert.classList.remove("on");
+        document.title = "cdindex v1.06";
+        return;
+      }
+      driveAlert.classList.add("on");
+      if (state === "warn") driveAlert.classList.add("warn");
+      alertTitle.textContent = title;
+      alertBody.textContent = body;
+      document.title = (state === "abort" ? "SCRUB — TURN AROUND · " : "DELAY · ") + "cdindex v1.06";
+      const key = state + "|" + title;
+      if (key !== lastAlertKey) {
+        lastAlertKey = key;
+        if (state === "abort") beep(3);
+        else if (state === "warn") beep(1);
+      }
+    }
+
+    function mapRow(pick) {
+      return {
+        id: pick.id || pick.slug || pick.name,
+        name: pick.mission?.name || pick.name || "SpaceX launch",
+        vehicle: pick.rocket?.configuration?.name || "SpaceX",
+        pad: [pick.pad?.name, pick.pad?.location?.name].filter(Boolean).join(" · "),
+        net: pick.net || null,
+        status: pick.status?.abbrev || pick.status?.name || "TBD",
+        statusName: pick.status?.name || pick.status?.abbrev || "TBD"
+      };
+    }
+
+    function pickUpcoming(rows) {
+      const now = Date.now();
+      const list = rows || [];
+      const usable = list.filter(r => {
+        const st = statusKey(r.status?.abbrev || r.status?.name);
+        if (st.includes("success") || st.includes("failure")) return false;
+        if (!r.net) return st === "tbd" || st.includes("to be");
+        const t = Date.parse(r.net);
+        if (Number.isNaN(t)) return false;
+        if (st.includes("in flight") && t < now - 3 * 60 * 60 * 1000) return false;
+        if (t < now - 2 * 60 * 60 * 1000 && !st.includes("hold") && !st.includes("in flight") && !st.includes("go")) return false;
+        return true;
+      });
+      return usable[0] || list[0] || null;
+    }
+
+    function adoptLive(next) {
+      if (!next) return;
+      const prev = liveLaunch;
+      const statusChanged = !prev || prev.status !== next.status || prev.id !== next.id;
+      const netChanged = !prev || prev.net !== next.net;
+      if (netChanged && next.net && prev && prev.net && prev.net !== next.net) {
+        holdFrozenMs = isHold(next.status) || isScrub(next.status)
+          ? Math.max(0, Date.parse(next.net) - Date.now())
+          : null;
+      }
+      if (statusChanged) {
+        if (isHold(next.status) || isScrub(next.status)) {
+          if (holdFrozenMs == null) {
+            const basis = next.net ? Date.parse(next.net) - Date.now() : 0;
+            holdFrozenMs = Math.max(0, basis);
+          }
+        } else {
+          holdFrozenMs = null;
+        }
+      }
+      const prevWasDated = prev && prev.net && !isScrub(prev.status);
+      const nextLostDay = !next.net || (prev && prev.net && Date.parse(next.net) - Date.parse(prev.net) >= SLIP_TURN_MS);
+      const tbdAfterGo = prevWasDated && (statusKey(next.status) === "tbd" || statusKey(next.status).includes("to be determined")) && nextLostDay;
+      liveLaunch = next;
+      if (target.value === "next") selected = next;
+      if (tbdAfterGo) {
+        setDriveAlert("abort", "Turn around", "The dated attempt dropped to TBD or moved 6+ hours. Treat that as a scrub for the drive to South Padre.");
+      }
+      if (next.net && !isHold(next.status) && !isScrub(next.status)) {
+        if (watchedNet && next.net !== watchedNet) {
+          const slip = Date.parse(next.net) - Date.parse(watchedNet);
+          if (slip >= SLIP_TURN_MS) {
+            setDriveAlert("abort", "Turn around", "Published T-0 slipped by 6 hours or more. That is a recycle or next-day attempt, not a short hold. Do not keep driving to the island on today's time.");
+          } else if (slip >= 15 * 60 * 1000) {
+            const mins = Math.round(slip / 60000);
+            const leave = leaveMs(next.net);
+            setDriveAlert("warn", "Delay — stay off the jetties", "T-0 slipped by " + mins + " minutes to " + fmtLocal(Date.parse(next.net)) + ". That is still today. Do not U-turn to San Antonio. If you already rolled, you can go back to camp and leave for the jetties at " + fmtLocal(leave) + ".");
+          }
+        }
+        watchedNet = next.net;
+      }
+    }
+
+    function applyTarget() {
+      const v = target.value;
+      holdFrozenMs = null;
+      watchedNet = null;
+      lastAlertKey = "";
+      driveState = "ok";
+      setDriveAlert("ok");
+      if (v === "none") {
+        selected = { name: "No dated T-0", vehicle: "—", pad: "—", net: null, status: "Idle", statusName: "Idle" };
+      } else if (v === "starship14") {
+        selected = STARSHIP14;
+      } else if (v === "starlink1524") {
+        selected = FALLBACK;
+      } else {
+        selected = liveLaunch || FALLBACK;
+      }
+      paintMain();
+    }
+
+    function paintMain() {
+      const name = selected.name || "Unknown mission";
+      missionLine.innerHTML = `Next T-0 &nbsp;·&nbsp; <b>${name}</b>`;
+      const when = selected.net
+        ? new Date(selected.net).toUTCString().replace("GMT", "UTC")
+        : "No published instant";
+      const localBit = selected.net
+        ? `T-0 ${fmtLocal(Date.parse(selected.net))} · leave jetties ${fmtLocal(leaveMs(selected.net))}`
+        : "";
+      const pollBit = lastPollAt
+        ? `Last poll ${new Date(lastPollAt).toLocaleTimeString()} · ${lastPollNote}`
+        : lastPollNote;
+      metaLine.textContent = `${selected.vehicle || ""}  ·  ${selected.pad || ""}  ·  ${when}  ·  ${localBit}  ·  ${pollBit}`;
+
+      const st = selected.status || "";
+      const holding = isHold(st);
+      const scrubbing = isScrub(st);
+
+      if (!selected.net && !holding) {
+        clock.textContent = "NET / TBD";
+        clock.className = "clock tbd";
+        tlabel.textContent = "";
+        units.style.visibility = "hidden";
+        chip.textContent = selected.statusName || st || "TBD";
+        chip.className = "chip tbd";
+        modeLabel.textContent = "No instant T-0";
+        return;
+      }
+
+      units.style.visibility = "visible";
+      let ms = selected.net ? Date.parse(selected.net) - Date.now() : 0;
+      if ((holding || scrubbing) && holdFrozenMs != null) ms = holdFrozenMs;
+
+      clock.textContent = fmtLong(ms);
+      clock.className = "clock";
+      chip.className = "chip";
+
+      if (holding) {
+        tlabel.textContent = ms >= 0 ? "T−" : "T+";
+        clock.classList.add("hold");
+        chip.textContent = "HOLD";
+        chip.classList.add("hold");
+        modeLabel.textContent = "HOLD · stay put, do not U-turn yet";
+        setDriveAlert("warn", "Hold — do not turn around yet", "The schedule is on hold. A hold is often minutes, not a scrub. Wait for the next poll before abandoning the drive.");
+      } else if (scrubbing) {
+        tlabel.textContent = ms >= 0 ? "T−" : "T+";
+        clock.classList.add("hold");
+        chip.textContent = "SCRUB";
+        chip.classList.add("scrub");
+        modeLabel.textContent = "SCRUB · turn around";
+        setDriveAlert("abort", "Scrub — turn around now", "Launch Library marked this attempt scrubbed. That is the signal to stop driving to South Padre.");
+      } else if (ms > 0) {
+        tlabel.textContent = "T−";
+        chip.textContent = st || "SCHEDULED";
+        if (statusKey(st) === "go") chip.classList.add("go");
+        const leave = leaveMs(selected.net);
+        const leaveIn = leave - Date.now();
+        if (leaveIn > 10 * 60 * 1000) {
+          modeLabel.textContent = "Do not roll to jetties yet · leave " + fmtLocal(leave);
+        } else if (leaveIn > 0) {
+          modeLabel.textContent = "Leave for jetties now · T-0 " + fmtLocal(Date.parse(selected.net));
+        } else {
+          modeLabel.textContent = "Be at the jetties · T-0 " + fmtLocal(Date.parse(selected.net));
+        }
+        if (driveState !== "abort" && driveState !== "warn") setDriveAlert("ok");
+      } else if (ms > -2 * 60 * 60 * 1000) {
+        tlabel.textContent = "T+";
+        clock.classList.add("go");
+        chip.textContent = isTerminalFlown(st) ? (st || "LIFTOFF") : "LIFTOFF WINDOW";
+        chip.classList.add("live");
+        modeLabel.textContent = "Past published NET";
+      } else {
+        tlabel.textContent = "T+";
+        chip.textContent = "FLOWN / STALE";
+        modeLabel.textContent = "Target stale · waiting for next poll";
+      }
+      paintLandings();
+    }
+
+    function isStarshipTarget() {
+      const blob = ((selected.vehicle || "") + " " + (selected.name || "") + " " + target.value).toLowerCase();
+      return blob.includes("starship") || blob.includes("super heavy") || blob.includes("starbase");
+    }
+
+    function fmtLanding(remainMs) {
+      const sign = remainMs < 0 ? "+" : "−";
+      const abs = Math.abs(remainMs);
+      const total = Math.floor(abs / 1000);
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      if (h > 0) return "T" + sign + h + ":" + pad(m) + ":" + pad(s);
+      return "T" + sign + pad(m) + ":" + pad(s);
+    }
+
+    function paintOneLanding(el, eventMs, label) {
+      if (!selected.net || Number.isNaN(eventMs)) {
+        el.textContent = label + " · no T-0";
+        el.className = "land-clock";
+        return;
+      }
+      const remain = eventMs - Date.now();
+      if (remain > 15 * 60 * 1000) {
+        el.textContent = fmtLanding(remain) + " · " + fmtLocal(eventMs);
+        el.className = "land-clock";
+      } else if (remain > 0) {
+        el.textContent = fmtLanding(remain) + " · soon";
+        el.className = "land-clock soon";
+      } else if (remain > -10 * 60 * 1000) {
+        el.textContent = fmtLanding(remain) + " · window";
+        el.className = "land-clock soon";
+      } else {
+        el.textContent = fmtLanding(remain) + " · past / approx";
+        el.className = "land-clock done";
+      }
+    }
+
+    function paintLandings() {
+      if (!landings) return;
+      if (!isStarshipTarget() || !selected.net) {
+        landings.classList.remove("on");
+        return;
+      }
+      landings.classList.add("on");
+      const t0 = Date.parse(selected.net);
+      const bMin = parseFloat(boosterMin && boosterMin.value ? boosterMin.value : 7);
+      const sHr = parseFloat(shipHours && shipHours.value ? shipHours.value : 2);
+      paintOneLanding(boosterClock, t0 + bMin * 60 * 1000, "booster");
+      paintOneLanding(shipClock, t0 + sHr * 60 * 60 * 1000, "ship");
+    }
+
+    function currentEvent(t) {
+      let cur = events[0];
+      for (const e of events) if (t <= e.t) cur = e;
+      return cur;
+    }
+    function nextEvent(t) {
+      return events.find(e => e.t < t) || null;
+    }
+
+    function paintSeq() {
+      const cur = currentEvent(seqRemain);
+      const nxt = nextEvent(seqRemain);
+      seqTitle.textContent = cur.title;
+      seqBody.textContent = cur.note;
+      seqClock.textContent = seqRemain <= 0 ? "T-0" : `T−${fmtSeq(seqRemain)}`;
+      seqNext.textContent = nxt && seqRemain > 0 ? `Next · T−${fmtSeq(nxt.t)}  ${nxt.title}` : "";
+      scrub.value = String(50 * 60 - seqRemain);
+      rail.innerHTML = events.map(e => {
+        let cls = "evt";
+        if (seqRemain < e.t) cls += " done";
+        else if (cur === e) cls += " now";
+        else if (nxt === e) cls += " next";
+        return `<div class="${cls}"><div class="t">T−${fmtSeq(e.t)}</div><div>${e.title}</div></div>`;
+      }).join("");
+    }
+
+    function seqTick(ts) {
+      if (!running) return;
+      if (lastTs == null) lastTs = ts;
+      const dt = (ts - lastTs) / 1000 * Number(speed.value);
+      lastTs = ts;
+      seqRemain = Math.max(0, seqRemain - dt);
+      paintSeq();
+      if (seqRemain > 0) requestAnimationFrame(seqTick);
+      else running = false;
+    }
+
+    document.getElementById("play").onclick = () => {
+      if (seqRemain <= 0) seqRemain = 50 * 60;
+      running = true;
+      lastTs = null;
+      requestAnimationFrame(seqTick);
+    };
+    document.getElementById("pause").onclick = () => { running = false; lastTs = null; };
+    document.getElementById("reset").onclick = () => {
+      running = false;
+      seqRemain = 50 * 60;
+      lastTs = null;
+      paintSeq();
+    };
+    scrub.oninput = () => {
+      seqRemain = 50 * 60 - Number(scrub.value);
+      paintSeq();
+    };
+
+    learn.addEventListener("change", () => {
+      document.body.classList.toggle("learn-on", learn.checked);
+      try { localStorage.setItem("ss-learn-seq", learn.checked ? "1" : "0"); } catch (e) {}
+    });
+    try {
+      if (localStorage.getItem("ss-learn-seq") === "1") {
+        learn.checked = true;
+        document.body.classList.add("learn-on");
+      }
+    } catch (e) {}
+
+    target.addEventListener("change", applyTarget);
+    if (transit) transit.addEventListener("change", paintMain);
+    if (boosterMin) boosterMin.addEventListener("input", paintLandings);
+    if (shipHours) shipHours.addEventListener("input", paintLandings);
+
+    async function loadLive() {
+      try {
+        const res = await fetch(LL_URL);
+        if (!res.ok) throw new Error("http " + res.status);
+        const data = await res.json();
+        const pick = pickUpcoming(data.results);
+        if (!pick) throw new Error("empty schedule");
+        adoptLive(mapRow(pick));
+        lastPollAt = Date.now();
+        lastPollNote = liveLaunch.status + " · LL";
+        paintMain();
+      } catch (err) {
+        lastPollAt = Date.now();
+        lastPollNote = "poll failed · " + (err.message || "offline");
+        if (!liveLaunch) {
+          liveLaunch = FALLBACK;
+          if (target.value === "next") selected = FALLBACK;
+        }
+        paintMain();
+      }
+    }
+
+    document.getElementById("refresh").onclick = loadLive;
+    applyTarget();
+    paintSeq();
+    loadLive();
+    setInterval(paintMain, 250);
+    setInterval(loadLive, POLL_MS);
+    document.addEventListener("click", function arm() {
+      try { new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+      document.removeEventListener("click", arm);
+    });
+  </script>
+</body>
+</html>
